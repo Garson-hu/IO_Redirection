@@ -1,0 +1,14 @@
+# EXE
+hello-libpmem
+hello-libpmem2
+hello-libpmemobj
+
+# Workflow exe's
+*-store
+*-print
+
+# Workflow files
+pmem-*file
+
+# WORKFLOW_FILE (temp)
+numbers.txt

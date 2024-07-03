@@ -92,6 +92,7 @@ void init(void)
     memset(fds, 0, sizeof(fds)); // make sure all fds is unused at first
 
     pmem_fd = open("/dev/dax1.0", O_RDWR);
+    
     if(pmem_fd == -1)
     {
         perror("open pmem");

@@ -1,27 +1,26 @@
-// pmem_io_redirection.h
-#ifndef PMEM_IO_REDIRECTION_H
-#define PMEM_IO_REDIRECTION_H
+#ifndef METADATA_H
+#define METADATA_H
 
 #include <stddef.h>
+#include <uthash.h>
 
-/* 
-    Those definitions are used for metadata management in pmem.
-    Everytime when we want to read/write something, we need to check metadata region first.
-    Para:
-    1. META_OFFSET_C35: Assumed metadata storage start address on node C35, this is also the start addr of devdax on C35
-    2. META_OFFSET_C36: Assumed metadata storage start address on node C36, same above
-    3. META_SIZE: Assumed metadata storage length, default: 2MB
-    4. DATA_OFFSET_C35: Start address for store data on node C35
-    5. DATA_OFFSET_C36: Start address for store data on node C36
-*/
-#define META_OFFSET_C35 0xae40200000
-#define META_OFFSET_C36 0
-#define META_SIZE 2097152
-#define DATA_OFFSET_C35 (META_OFFSET_C35 + META_SIZE)
-#define DATA_OFFSET_C36 (META_OFFSET_C36 + META_SIZE)
+#define MAXMIUN_FILE_PATH 256
 
-// External declarations
-extern char *base_addr_devdax;
-extern int pmem_fd;
+// data structure of metadata 
+typedef struct {
+    unsigned long hash_key;             // The hash value of a file path (as the key)
+    char filepath[MAXMIUN_FILE_PATH];   // the length of a file path
+    void *pmem_addr;                    // the start address of this file in PMEM
+    int access_count;                  // access time of the file
+    int fd;                             // file descritpor 
+    UT_hash_handle hh;                  // uthash handle
+}pmem_metadata_t;
 
-#endif // PMEM_IO_REDIRECTION_H
+// function declarition
+unsigned long generate_hash(const char *path);          // return the hash generated from the path
+void read_file(const char *path);                       // read the content of the file
+pmem_metadata_t *cache_file_content(const char *path);  // cache the content of a file
+int allocate_unique_fd();                               // return a unique fd for each file
+
+
+#endif // METADATA_H

@@ -72,34 +72,111 @@ unsigned long generate_hash(const char* path){
 //     return pmem_addr;
 // }
 
+
+/**
+ * Allocate a unique file descriptor for each file.
+ * This function is used to simulate the unique file descriptor returned by the system call open()
+ * @return a unique file descriptor
+ */
+int allocate_unique_fd() {
+    return fd_counter++; 
+}
+
+
+/**
+ * Find the metadata of a file from the hash table based on the given file path
+ * @param path the path of the file
+ * @return the metadata of the file if the file is found in the hash table, otherwise return NULL
+ */
+pmem_metadata_t find_metadata(const char *path){
+    unsigned long file_hash_key = generate_hash(path);
+    pmem_metadata_t *entry = metadata_head;
+
+    while(entry != NULL & entry->hash_key != 0)
+    {
+        if(entry->hash_key == file_hash_key)
+            return entry;
+        entry = entry->next;
+    }
+    return NULL;
+}
+
+/**
+ * Cache the content of a file in PMEM.
+ * 
+ * This function checks if the file is already cached in PMEM. If it is, the access count of the corresponding metadata is incremented and the metadata is returned.
+ * If the file is not cached and migration is allowed, a new metadata is allocated on PMEM, the file is opened, its size is determined, memory is allocated for its content, and the content is read from disk to PMEM.
+ * 
+ * @param path the path of the file to be cached
+ * @return the metadata of the cached file, or NULL if the file cannot be cached
+ */
 pmem_metadata_t *cache_file_content(const char *path){
     unsigned long file_hash_key = generate_hash(path);
-    pmem_metadata_t *entry;
+    pmem_metadata_t *entry = metadata_head;
 
-    HASH_FIND(hh, metadata_map, &file_hash_key, sizeof(unsigned long), entry);
-
-    // if this file already in the hash table
-    if(entry)
+    if(entry != NULL)
     {
         entry->access_count++;
         return entry;
     }
 
-    // if file is not been cached, cache this file and return
-    void *file_content = read_file(path);
-    if(file_content)
+    // if the file is not cached and don't need migrate, return NULL
+    if(!shoule_migrate)
     {
-        entry = (pmem_metadata_t*)malloc(sizeof(pmem_metadata_t));
-        entry->hash_key = file_hash_key;
-        strcpy(entry->filepath, path);
-        entry->pmem_addr = file_content;
-        entry->size = sizeof(file_content);
-        entry->access_count = 1;
-        entry->fd = allocate_unique_fd();
-
-        // add this new item to hash table
-        HASH_ADD(hh, metadata_map, hash_key, sizeof(unsigned long), entry);
+        printf("Don't migrate the file (function: cache_file_content)");
+        return NULL;
     }
-    return entry;
 
+    // find the last metadata used in the hash table
+    entry = metadata_head;
+    while(entry != NULL & entry->hash_key != 0)
+    {
+        entry = entry->next;
+    }
+
+    // allocate a new metadata on PMEM
+    pmem_metadata_t *new_entry = (pmem_metadata_t*)((char*)pmem_base + ((char*)entry - (char*)pmem_base) + sizeof(pmem_metadata_t));
+    entry->next = new_entry;
+    new_entry->hash_key = file_hash_key;
+    strcpy(new_entry->filepath, path);
+    new_entry->size = 0;
+    new_entry->access_count = 1;
+    new_entry->fd = allocate_unique_fd();
+    new_entry->next = NULL;
+
+    // open the file
+    int disk_fd = open(path, O_RDONLY);
+    if(disk_fd < 0)
+    {
+        printf("Cannot open file from disk (function: cache_file_content)");
+        return NULL;
+    }
+
+    // get the size of the file
+    off_t file_size = lseek(disk_fd, 0, SEEK_END);
+    lseek(disk_fd, 0, SEEK_SET);
+
+    // allocate memory for the file content
+    new_entry->pmem_addr = malloc(file_size);
+    if(new_entry->pmem_addr == NULL)
+    {
+        printf("Cannot allocate memory for file content (function: cache_file_content)");
+        close(disk_fd);
+        return NULL;
+    }
+
+    // read the file content from disk to PMEM
+    ssize_t bytes_read = read(disk_fd, new_entry->pmem_addr, file_size);
+    if(bytes_read != file_size)
+    {
+        printf("Cannot read file content from disk (function: cache_file_content)");
+        close(disk_fd);
+        return NULL;
+    }
+
+    new_entry->size = file_size;
+
+    close(disk_fd);
+
+    return new_entry;
 }

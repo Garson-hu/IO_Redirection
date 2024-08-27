@@ -94,9 +94,6 @@ int open(const char *pathname, int flags, ...){
     return fd;
 }
 
-int close(int fd){
-
-}
 
 
 ssize_t read(int fd, void *buf, size_t count){
@@ -105,7 +102,18 @@ ssize_t read(int fd, void *buf, size_t count){
 
 
 ssize_t write(int fd, const void *buf, size_t count){
-    
+    init();
+
+    // find the metadata of the fd
+    pmem_metadata_t *entry = metadata_head;
+    while(entry != NULL & entry->fd != fd)
+    {
+        entry = entry->next;
+    }
 }
 
+
+int close(int fd){
+    
+}
 

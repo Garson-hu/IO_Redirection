@@ -55,6 +55,7 @@ int open(const char *pathname, int flags, ...){
         pmem_metadata_t *entry = find_metadata(pathname);
         if(entry)
         {
+            entry->access_count++;
             printf("Intercepted open for PMEM file: %s, returning custom fd: %d\n", pathname, entry->fd);
             return entry->fd;
         }
@@ -64,6 +65,7 @@ int open(const char *pathname, int flags, ...){
         if(entry)
         {
             printf("file %s found in PMEM metadata, using custom fd: %d\n", pathname, entry->fd);
+            entry->access_count++;
             return entry->fd;
         }else{
             if(should_migrate)
@@ -71,6 +73,7 @@ int open(const char *pathname, int flags, ...){
                 entry = cache_file_content(pathname);
                 if(entry)
                 {
+                    entry->access_count++;
                     printf("Migrate file %s to PMEM, returning custom fd: %d\n", pathname, entry->fd);
                     return entry->fd;
                 }
@@ -85,9 +88,12 @@ int open(const char *pathname, int flags, ...){
         va_list args;
         va_start(args, flags);
         mode_t mode = va_arg(args, mode_t);
+        printf("original open\n");
         fd = real_open(pathname, flags, mode);
         va_end(args);
     } else {
+
+        printf("original open\n");
         fd = real_open(pathname, flags);
     }
 
@@ -95,12 +101,46 @@ int open(const char *pathname, int flags, ...){
 }
 
 
-
+/**
+ * Reads data from a file descriptor, intercepting reads to PMEM files.
+ *
+ * @param fd   The file descriptor to read from.
+ * @param buf  The buffer to store the read data.
+ * @param count The number of bytes to read.
+ *
+ * @return The number of bytes read, or the result of the underlying real_read function if the file is not a PMEM file.
+ */
 ssize_t read(int fd, void *buf, size_t count){
+    init();
+
+    pmem_metadata_t *entry = metadata_head;
+    while(entry != NULL & entry->fd != fd)
+    {
+        entry = entry->next;
+    }
+
+    if (entry)
+    {
+        printf("Intercepted read for PMEM file: %s, reading %ld bytes from pmem\n", entry->path, count);
+        memcpy(buf, entry->pmem_addr, count);
+        entry->access_count++;
+        return count;
+    }
+
+    printf("original read\n");
+    return real_read(fd, buf, count);
     
 }
 
-
+/**
+ * Writes data to a file descriptor, intercepting writes to PMEM files.
+ *
+ * @param fd   The file descriptor to write to.
+ * @param buf  The buffer containing the data to write.
+ * @param count The number of bytes to write.
+ *
+ * @return The number of bytes written, or the result of the underlying real_write function if the file is not a PMEM file.
+ */
 ssize_t write(int fd, const void *buf, size_t count){
     init();
 
@@ -110,10 +150,38 @@ ssize_t write(int fd, const void *buf, size_t count){
     {
         entry = entry->next;
     }
+
+    if(entry)
+    {
+        printf("Intercepted write for PMEM file: %s, writing %ld bytes to pmem\n", entry->path, count);
+        //TODO if the new size is smaller than the old size, delete the old content
+        memcpy((char*)entry->pmem_addr, buf, count);
+        entry->access_count++;
+        entry->size = count;
+        return count;
+    }
+
+    printf("original write\n");
+    return real_write(fd, buf, count);
 }
 
 
 int close(int fd){
-    
+    init();
+
+    pmem_metadata_t *entry = metadata_head;
+    while(entry != NULL & entry->fd != fd)
+    {
+        entry = entry->next;
+    }
+
+    if(entry)
+    {
+        printf("Intercepted close for PMEM file: %s\n", entry->path);
+
+        return 0;
+    }
+
+    return real_close(fd);
 }
 

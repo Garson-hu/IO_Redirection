@@ -1,11 +1,9 @@
 # create a library for this subdirectory
-add_library(SRC pmem_io_redirection.c)
+add_library(preload SHARED preload.c metadata.c)
 
-# if the current mode is redirect or not
-option(IO_REDIRECT "if this file shoule be redirected. YES: ON, NO: OFF" ON)
+target_link_libraries(preload dl)
+
+# target_include_directories(preload PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 
-if(IO_REDIRECT)
-    target_compile_definitions(SRC PRIVATE "IO_REDIRECT")
-endif()
-
+set_target_properties(preload PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

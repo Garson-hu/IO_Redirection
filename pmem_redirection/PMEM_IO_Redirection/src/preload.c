@@ -46,12 +46,30 @@ void init(){
 int open(const char *pathname, int flags, ...){
     init();
 
-    // default not migrate
-    int should_migrate = 0;  //! check if need to migrate
+    printf("I'm in open() of preload.c\n");
+    
+    // filter some paths such as /dev and /proc
+    // if (strstr(pathname, "/dev/") != NULL || strstr(pathname, "/proc/") != NULL) {
+    //     // 对这些路径使用原始的 open 函数
+    //     int fd;
+    //     va_list args;
+    //     if (flags & O_CREAT) {
+    //         va_start(args, flags);
+    //         mode_t mode = va_arg(args, mode_t);
+    //         fd = real_open(pathname, flags, mode);
+    //         va_end(args);
+    //     } else {
+    //         fd = real_open(pathname, flags);
+    //     }
+    //     return fd;
+    // }
 
+    int should_migrate = 1;  //! check if need to migrate
+    printf("pathname:%s\n", pathname);
     // Static: if the pathname have pm/ssd --> go to pm/ssd
     if(strstr(pathname, "/pmem/") != NULL)
     {
+        printf("I'm in first if of open() of preload.c\n");
         pmem_metadata_t *entry = find_metadata(pathname);
         if(entry)
         {
@@ -70,7 +88,7 @@ int open(const char *pathname, int flags, ...){
         }else{
             if(should_migrate)
             {
-                entry = cache_file_content(pathname);
+                entry = cache_file_content(pathname, should_migrate);
                 if(entry)
                 {
                     entry->access_count++;
@@ -84,18 +102,20 @@ int open(const char *pathname, int flags, ...){
 
     // if the file is not cached in PMEM, use the original open function
     int fd;
-    if (flags & O_CREAT) {
-        va_list args;
-        va_start(args, flags);
-        mode_t mode = va_arg(args, mode_t);
-        printf("original open\n");
-        fd = real_open(pathname, flags, mode);
-        va_end(args);
-    } else {
+    // if (flags & O_CREAT) {
+    //     va_list args;
+    //     va_start(args, flags);
+    //     mode_t mode = va_arg(args, mode_t);
+    //     printf("original open\n");
+    //     fd = real_open(pathname, flags, mode);
+    //     va_end(args);
+    // } else {
+    //     printf("original open\n");
+    //     fd = real_open(pathname, flags);
+    // }
 
-        printf("original open\n");
-        fd = real_open(pathname, flags);
-    }
+    printf("original open\n");
+    fd = real_open(pathname, flags);
 
     return fd;
 }
@@ -121,7 +141,7 @@ ssize_t read(int fd, void *buf, size_t count){
 
     if (entry)
     {
-        printf("Intercepted read for PMEM file: %s, reading %ld bytes from pmem\n", entry->path, count);
+        printf("Intercepted read for PMEM file: %s, reading %ld bytes from pmem\n", entry->filepath, count);
         memcpy(buf, entry->pmem_addr, count);
         entry->access_count++;
         return count;
@@ -153,7 +173,7 @@ ssize_t write(int fd, const void *buf, size_t count){
 
     if(entry)
     {
-        printf("Intercepted write for PMEM file: %s, writing %ld bytes to pmem\n", entry->path, count);
+        printf("Intercepted write for PMEM file: %s, writing %ld bytes to pmem\n", entry->filepath, count);
         //TODO if the new size is smaller than the old size, delete the old content
         memcpy((char*)entry->pmem_addr, buf, count);
         entry->access_count++;
@@ -177,7 +197,7 @@ int close(int fd){
 
     if(entry)
     {
-        printf("Intercepted close for PMEM file: %s\n", entry->path);
+        printf("Intercepted close for PMEM file: %s\n", entry->filepath);
 
         return 0;
     }

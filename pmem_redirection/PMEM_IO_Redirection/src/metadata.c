@@ -12,7 +12,6 @@
 
 
 static void *pmem_base = NULL;                          // BASE ADDRESS for PMEM
-static pmem_metadata_t *metadata_head = NULL;           // pointer to the head of Metadata on PMEM
 static int fd_counter = 1000;                           // Base file descriptor, start from 1000
 
 
@@ -88,7 +87,7 @@ int allocate_unique_fd() {
  * @param path the path of the file
  * @return the metadata of the file if the file is found in the hash table, otherwise return NULL
  */
-pmem_metadata_t find_metadata(const char *path){
+pmem_metadata_t *find_metadata(const char *path){
     unsigned long file_hash_key = generate_hash(path);
     pmem_metadata_t *entry = metadata_head;
 
@@ -110,7 +109,7 @@ pmem_metadata_t find_metadata(const char *path){
  * @param path the path of the file to be cached
  * @return the metadata of the cached file, or NULL if the file cannot be cached
  */
-pmem_metadata_t *cache_file_content(const char *path){
+pmem_metadata_t *cache_file_content(const char *path, int should_migrate){
     unsigned long file_hash_key = generate_hash(path);
     pmem_metadata_t *entry = metadata_head;
 
@@ -121,7 +120,7 @@ pmem_metadata_t *cache_file_content(const char *path){
     }
 
     // if the file is not cached and don't need migrate, return NULL
-    if(!shoule_migrate)
+    if(!should_migrate)
     {
         printf("Don't migrate the file (function: cache_file_content)");
         return NULL;

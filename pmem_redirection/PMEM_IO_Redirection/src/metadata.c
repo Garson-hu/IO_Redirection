@@ -5,10 +5,12 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+// #include <dlfcn.h> 
+
 
 #define PMEM_TOTAL_SIZE (16L * 1024L * 1024L * 1024L)   // Assume the size of PMEM is 16GB for now
 #define PMEM_METADATA_SIZE (1024 * 1024 * 1024)         // 1GB for metadata
-#define PMEM_PATH ""                                    //! NEED PATH FOR PMEM
+#define PMEM_PATH "/dev/dax1.0"                         //! NEED PATH FOR PMEM
 
 
 static void *pmem_base = NULL;                          // BASE ADDRESS for PMEM
@@ -19,7 +21,9 @@ static int fd_counter = 1000;                           // Base file descriptor,
 // 2. Get the base address of the PMEM
 // 3. Initialize the metadata on PMEM
 void init_pmem_metadata(){
-    int fd = open(PMEM_PATH, O_RDWR | O_CREAT, 0666);                                           // open PMEM
+
+    int fd = open(PMEM_PATH, O_RDWR | O_CREAT, 0666);                                         // open PMEM
+    
     if(fd < 0)
     {
         printf("ERROR on open PMEM (init_pmem_metadata in metadata.c)");
@@ -27,11 +31,16 @@ void init_pmem_metadata(){
     }
 
     pmem_base = mmap(NULL, PMEM_TOTAL_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);       // Allocate space for the metadata
+    printf("pmem_base = %p in init_pmem_metadata() of metadata.c\n", pmem_base);
+
     if(pmem_base == MAP_FAILED)
     {
         printf("ERROR on mmap PMEM (init_pmem_metadata in metadata.c)");
         exit(1);
     }
+
+    printf("pmem_base mapped, now initialize the metadata head (init_pmem_metadata in metadata.c)\n");
+
     close(fd);
 
     metadata_head = (pmem_metadata_t*)pmem_base;                                              // Use the first 1GB for metadata management
@@ -40,6 +49,8 @@ void init_pmem_metadata(){
         // initialize the data of metadata head
         memset(metadata_head, 0, sizeof(pmem_metadata_t));
     }
+
+    printf("initialize done (init_pmem_metadata in metadata.c)\n");
 }
 
 // generate the hash for the input path
@@ -90,8 +101,10 @@ int allocate_unique_fd() {
 pmem_metadata_t *find_metadata(const char *path){
     unsigned long file_hash_key = generate_hash(path);
     pmem_metadata_t *entry = metadata_head;
+    
+    printf("Now in function find_metadata in metadata.c\n");
 
-    while(entry != NULL & entry->hash_key != 0)
+    while(entry != NULL && entry->hash_key != 0)
     {
         if(entry->hash_key == file_hash_key)
             return entry;

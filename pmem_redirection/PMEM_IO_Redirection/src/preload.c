@@ -10,6 +10,26 @@
 #include <errno.h>
 #include "metadata.h"
 
+/**
+ * The constructor attribute tells the linker to call this function before the
+ * main() function is called. This is used to initialize the metadata of the
+ * PMEM device before the program starts.
+ *
+ * The function simply calls init_pmem_metadata() to initialize the metadata.
+ */
+// __attribute__((constructor))
+// void preload_init() {
+//     // remove LD_PRELOAD
+//     unsetenv("LD_PRELOAD");
+    
+//     // init PMEM metadata
+//     init_pmem_metadata();
+    
+//     // recover LD_PRELOAD
+//     setenv("LD_PRELOAD", "./lib/libpreload.so", 1);
+// }
+
+
 static int (*real_open)(const char *pathname, int flags, ...) = NULL;
 static int (*real_close)(int fd) = NULL;
 static ssize_t (*real_read) (int fd, void *buf, size_t count) = NULL;
@@ -21,7 +41,7 @@ static int initialized = 0;
 void init(){
 
     if(initialized) return;
-
+    // init_pmem_metadata();
     real_open = dlsym(RTLD_NEXT, "open");
     real_write = dlsym(RTLD_NEXT, "write");
     real_close = dlsym(RTLD_NEXT, "close");
@@ -47,22 +67,6 @@ int open(const char *pathname, int flags, ...){
     init();
 
     printf("I'm in open() of preload.c\n");
-    
-    // filter some paths such as /dev and /proc
-    // if (strstr(pathname, "/dev/") != NULL || strstr(pathname, "/proc/") != NULL) {
-    //     // 对这些路径使用原始的 open 函数
-    //     int fd;
-    //     va_list args;
-    //     if (flags & O_CREAT) {
-    //         va_start(args, flags);
-    //         mode_t mode = va_arg(args, mode_t);
-    //         fd = real_open(pathname, flags, mode);
-    //         va_end(args);
-    //     } else {
-    //         fd = real_open(pathname, flags);
-    //     }
-    //     return fd;
-    // }
 
     int should_migrate = 1;  //! check if need to migrate
     printf("pathname:%s\n", pathname);
@@ -73,6 +77,7 @@ int open(const char *pathname, int flags, ...){
         pmem_metadata_t *entry = find_metadata(pathname);
         if(entry)
         {
+            printf("I'm in first ENTRY-1 of open() of preload.c\n");
             entry->access_count++;
             printf("Intercepted open for PMEM file: %s, returning custom fd: %d\n", pathname, entry->fd);
             return entry->fd;
@@ -81,16 +86,20 @@ int open(const char *pathname, int flags, ...){
         // if the file path don't have pm/ssd, find it's metadata first
         pmem_metadata_t *entry = find_metadata(pathname);
         if(entry)
-        {
+        {   
+            printf("I'm in second ENTRY-2 of open() of preload.c\n");
             printf("file %s found in PMEM metadata, using custom fd: %d\n", pathname, entry->fd);
             entry->access_count++;
             return entry->fd;
         }else{
             if(should_migrate)
             {
+                printf("I'm in first should_migrate-1 of open() of preload.c\n");
+
                 entry = cache_file_content(pathname, should_migrate);
                 if(entry)
                 {
+                    printf("I'm in third ENTRY-3 of open() of preload.c\n");
                     entry->access_count++;
                     printf("Migrate file %s to PMEM, returning custom fd: %d\n", pathname, entry->fd);
                     return entry->fd;
@@ -114,7 +123,7 @@ int open(const char *pathname, int flags, ...){
     //     fd = real_open(pathname, flags);
     // }
 
-    printf("original open\n");
+    printf("original open in open() at preload.c\n");
     fd = real_open(pathname, flags);
 
     return fd;
@@ -163,14 +172,15 @@ ssize_t read(int fd, void *buf, size_t count){
  */
 ssize_t write(int fd, const void *buf, size_t count){
     init();
-
+    printf("I'm in write() of preload.c\n");
     // find the metadata of the fd
+
     pmem_metadata_t *entry = metadata_head;
     while(entry != NULL & entry->fd != fd)
     {
         entry = entry->next;
     }
-
+    
     if(entry)
     {
         printf("Intercepted write for PMEM file: %s, writing %ld bytes to pmem\n", entry->filepath, count);

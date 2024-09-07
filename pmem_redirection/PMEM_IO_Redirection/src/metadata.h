@@ -23,6 +23,7 @@ void init_pmem_metadata();                                                  // i
 pmem_metadata_t *find_metadata(const char *path);                           // find the metadata through the given path
 pmem_metadata_t *cache_file_content(const char *path, int should_migrate);  // cache/migrate the content of a file
 int allocate_unique_fd();                                                   // return a unique fd for each file
+void print_pmem_metadata(const pmem_metadata_t *metadata);
 
 // global variable
 static pmem_metadata_t *metadata_head = NULL;           // pointer to the head of Metadata on PMEM

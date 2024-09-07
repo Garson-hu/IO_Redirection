@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <errno.h>
 #include "metadata.h"
 
@@ -30,6 +31,13 @@
 // }
 
 
+
+#define PMEM_TOTAL_SIZE (16L * 1024L * 1024L * 1024L)   // Assume the size of PMEM is 16GB for now
+#define PMEM_METADATA_SIZE (1024 * 1024 * 1024)         // 1GB for metadata
+#define PMEM_PATH "/mnt/fsdax/ghu4/test.txt"                         //! NEED PATH FOR PMEM
+
+static void *pmem_base = NULL;                          // BASE ADDRESS for PMEM
+
 static int (*real_open)(const char *pathname, int flags, ...) = NULL;
 static int (*real_close)(int fd) = NULL;
 static ssize_t (*real_read) (int fd, void *buf, size_t count) = NULL;
@@ -47,6 +55,36 @@ void init(){
     real_close = dlsym(RTLD_NEXT, "close");
     real_read = dlsym(RTLD_NEXT, "read");
     
+    int fd = real_open(PMEM_PATH, O_RDWR | O_CREAT, 0666);                                         // open PMEM
+    
+    if(fd < 0)
+    {
+        printf("ERROR on open PMEM (init_pmem_metadata in metadata.c)");
+        exit(1);
+    }
+
+    pmem_base = mmap(NULL, PMEM_TOTAL_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);       // Allocate space for the metadata
+    printf("pmem_base = %p in init_pmem_metadata() of metadata.c\n", pmem_base);
+
+    if(pmem_base == MAP_FAILED)
+    {
+        printf("ERROR on mmap PMEM (init_pmem_metadata in metadata.c)");
+        exit(1);
+    }
+
+    printf("pmem_base mapped, now initialize the metadata head (init_pmem_metadata in metadata.c)\n");
+
+    close(fd);
+
+    metadata_head = (pmem_metadata_t*)pmem_base;                                              // Use the first 1GB for metadata management
+    if(metadata_head->hash_key == 0)
+    {
+        // initialize the data of metadata head
+        memset(metadata_head, 0, sizeof(pmem_metadata_t));
+    }
+
+    printf("initialize done (init_pmem_metadata in metadata.c)\n");
+
     initialized = 1;
 
 }
@@ -176,6 +214,9 @@ ssize_t write(int fd, const void *buf, size_t count){
     // find the metadata of the fd
 
     pmem_metadata_t *entry = metadata_head;
+
+    print_pmem_metadata(metadata_head);
+    printf("fd = %d in write() of preload.c\n");
     while(entry != NULL & entry->fd != fd)
     {
         entry = entry->next;

@@ -5,12 +5,13 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
-// #include <dlfcn.h> 
+// #include <dlfcn.h>  // If I don't comment this head file, the pathname that I pass to open will be changed
 
 
 #define PMEM_TOTAL_SIZE (16L * 1024L * 1024L * 1024L)   // Assume the size of PMEM is 16GB for now
 #define PMEM_METADATA_SIZE (1024 * 1024 * 1024)         // 1GB for metadata
-#define PMEM_PATH "/dev/dax1.0"                         //! NEED PATH FOR PMEM
+#define PMEM_PATH "/mnt/fsdax"                         //! NEED PATH FOR PMEM
+// #define PMEM_PATH "/dev/dax1.0"                         //! NEED PATH FOR PMEM
 
 
 static void *pmem_base = NULL;                          // BASE ADDRESS for PMEM
@@ -191,4 +192,32 @@ pmem_metadata_t *cache_file_content(const char *path, int should_migrate){
     close(disk_fd);
 
     return new_entry;
+}
+
+
+/**
+ * Print the metadata of a file.
+ *
+ * @param metadata the metadata of the file to be printed
+ */
+void print_pmem_metadata(const pmem_metadata_t *metadata) {
+    if (metadata == NULL) {
+        printf("No metadata to print.\n");
+        return;
+    }
+
+    printf("Metadata Information:\n");
+    printf("Hash Key        : %lu\n", metadata->hash_key);
+    printf("File Path       : %s\n", metadata->filepath);
+    printf("PMEM Address    : %p\n", metadata->pmem_addr);
+    printf("Access Count    : %d\n", metadata->access_count);
+    printf("File Size       : %zu bytes\n", metadata->size);
+    printf("File Descriptor : %d\n", metadata->fd);
+
+    // Check if the next metadata block is available
+    if (metadata->next != NULL) {
+        printf("Next Metadata Block Available.\n");
+    } else {
+        printf("No Next Metadata Block.\n");
+    }
 }

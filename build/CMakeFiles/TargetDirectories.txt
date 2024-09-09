@@ -1,0 +1,10 @@
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/CMakeFiles/edit_cache.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/CMakeFiles/rebuild_cache.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/src/CMakeFiles/preload.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/src/CMakeFiles/edit_cache.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/src/CMakeFiles/rebuild_cache.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/test/CMakeFiles/bin1.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/test/CMakeFiles/bin2.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/test/CMakeFiles/bin3.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/test/CMakeFiles/edit_cache.dir
+/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/test/CMakeFiles/rebuild_cache.dir

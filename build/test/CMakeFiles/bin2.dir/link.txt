@@ -1,0 +1,1 @@
+/opt/ohpc/pub/compiler/gcc/12.3.0/bin/cc CMakeFiles/bin2.dir/bin2.c.o -o bin2  -Wl,-rpath,/home/ghu4/filesys/pmem_redirection/fsdax_branch_redirection/pmem_redirection/PMEM_IO_Redirection/build/lib ../lib/libpreload.so 
